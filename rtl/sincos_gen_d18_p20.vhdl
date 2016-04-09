@@ -7,6 +7,9 @@
 --  Sin/cos output:
 --    signed 18 bits (nominal amplitude = 2**17-1)
 --
+--  Latency:
+--    6 clock cycles
+--
 --  Copyright 2016 Joris van Rantwijk
 --
 --  This design is free software; you can redistribute it and/or
