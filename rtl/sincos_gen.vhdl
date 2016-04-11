@@ -192,8 +192,8 @@ begin
                 -- Keep phase remainder and work on multiplication by Pi/2.
                 r2_rphase   <= r1_rphase;
                 r2_dphase   <= r1_dphase +
-                               resize(r1_dphase(dphase_bits-1 downto 6), dphase_bits) +
-                               signed("0" & r1_dphase(5 downto 5));
+                               resize(r1_dphase(dphase_bits-1 downto 7), dphase_bits) +
+                               signed("0" & r1_dphase(6 downto 6));
 
                 -- Table lookup.
                 r2_sin_data <= unsigned(lookup_table(to_integer(r1_sin_addr)));
