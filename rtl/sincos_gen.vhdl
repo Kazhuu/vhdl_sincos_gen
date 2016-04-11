@@ -79,7 +79,7 @@ architecture rtl of sincos_gen is
     begin
         for i in 0 to table_size-1 loop
             sin_flt := sin(real(2*i + 1) / real(2 * table_size) * MATH_PI / 2.0);
-            sin_int := integer(sin_flt * real(2**table_width - 1));
+            sin_int := integer(sin_flt * real(2**table_width - 2));
             tbl(i) := std_logic_vector(to_unsigned(sin_int, table_width));
         end loop;
         return tbl;
