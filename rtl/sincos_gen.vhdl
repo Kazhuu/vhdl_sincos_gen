@@ -60,12 +60,12 @@ architecture rtl of sincos_gen is
     constant dphase_bits:   integer := phase_bits - table_addrbits;
 
     -- Scaling for 1st order (final) Taylor correction.
-    constant accum1_bits:   integer := table_width + phase_bits;
-    constant round_const1:  unsigned(phase_bits-2 downto 0) := (others => '1');
+    constant accum1_bits:   integer := table_width + phase_bits - 1;
+    constant round_const1:  unsigned(phase_bits-3 downto 0) := (others => '1');
 
     -- Scaling for 2nd order Taylor correction.
-    constant accum2_bits:   integer := table_width + phase_bits + 1;
-    constant round_const2:  unsigned(phase_bits-1 downto 0) := "0" & round_const1;
+    constant accum2_bits:   integer := table_width + phase_bits;
+    constant round_const2:  unsigned(phase_bits-2 downto 0) := "0" & round_const1;
 
     -- Lookup table type.
     type table_type is array(0 to table_size-1) of
@@ -104,17 +104,17 @@ architecture rtl of sincos_gen is
     signal r3_dphase:   signed(dphase_bits-1 downto 0);
     signal r3_sin_data: unsigned(table_width-1 downto 0);
     signal r3_cos_data: unsigned(table_width-1 downto 0);
-    signal r3_sinm2_a:  signed(table_width downto 0);
+    signal r3_sinm2_a:  signed(table_width-1 downto 0);
     signal r3_sinm2_b:  signed(dphase_bits-1 downto 0);
-    signal r3_cosm2_a:  signed(table_width downto 0);
+    signal r3_cosm2_a:  signed(table_width-1 downto 0);
     signal r3_cosm2_b:  signed(dphase_bits-1 downto 0);
     signal r4_quadrant: unsigned(1 downto 0);
     signal r4_dphase:   signed(dphase_bits-1 downto 0);
     signal r4_sin_data: unsigned(table_width-1 downto 0);
     signal r4_cos_data: unsigned(table_width-1 downto 0);
-    signal r4_sinm2_m:  signed(table_width+dphase_bits downto 0);
+    signal r4_sinm2_m:  signed(table_width+dphase_bits-1 downto 0);
     signal r4_sinm2_c:  signed(accum2_bits-1 downto 0);
-    signal r4_cosm2_m:  signed(table_width+dphase_bits downto 0);
+    signal r4_cosm2_m:  signed(table_width+dphase_bits-1 downto 0);
     signal r4_cosm2_c:  signed(accum2_bits-1 downto 0);
     signal r5_quadrant: unsigned(1 downto 0);
     signal r5_dphase:   signed(dphase_bits-1 downto 0);
@@ -125,14 +125,14 @@ architecture rtl of sincos_gen is
     signal r6_quadrant: unsigned(1 downto 0);
     signal r6_sin_data: unsigned(table_width-1 downto 0);
     signal r6_cos_data: unsigned(table_width-1 downto 0);
-    signal r6_sinm1_a:  signed(table_width downto 0);
+    signal r6_sinm1_a:  signed(table_width-1 downto 0);
     signal r6_sinm1_b:  signed(dphase_bits-1 downto 0);
-    signal r6_cosm1_a:  signed(table_width downto 0);
+    signal r6_cosm1_a:  signed(table_width-1 downto 0);
     signal r6_cosm1_b:  signed(dphase_bits-1 downto 0);
     signal r7_quadrant: unsigned(1 downto 0);
-    signal r7_sinm1_m:  signed(table_width+dphase_bits downto 0);
+    signal r7_sinm1_m:  signed(table_width+dphase_bits-1 downto 0);
     signal r7_sinm1_c:  signed(accum1_bits-1 downto 0);
-    signal r7_cosm1_m:  signed(table_width+dphase_bits downto 0);
+    signal r7_cosm1_m:  signed(table_width+dphase_bits-1 downto 0);
     signal r7_cosm1_c:  signed(accum1_bits-1 downto 0);
     signal r8_quadrant: unsigned(1 downto 0);
     signal r8_sinm1_p:  signed(accum1_bits-1 downto 0);
@@ -275,9 +275,9 @@ begin
                     r3_cos_data <= r2_cos_data;
 
                     -- Prepare multiplication for 2nd order Taylor correction.
-                    r3_sinm2_a  <= signed(resize(r2_sin_data, table_width+1));
+                    r3_sinm2_a  <= signed(resize(r2_sin_data(table_width-1 downto 1), table_width));
                     r3_sinm2_b  <= v3_dphase;
-                    r3_cosm2_a  <= signed(resize(r2_cos_data, table_width+1));
+                    r3_cosm2_a  <= signed(resize(r2_cos_data(table_width-1 downto 1), table_width));
                     r3_cosm2_b  <= v3_dphase;
 
                     -- Stage 4
@@ -341,9 +341,9 @@ begin
                     r6_cos_data <= r2_cos_data;
 
                     -- Prepare multiplication for 1st order Taylor correction.
-                    r6_sinm1_a  <= signed(resize(r2_cos_data, table_width+1));
+                    r6_sinm1_a  <= signed(resize(r2_cos_data(table_width-1 downto 1), table_width));
                     r6_sinm1_b  <= v3_dphase;
-                    r6_cosm1_a  <= signed(resize(r2_sin_data, table_width+1));
+                    r6_cosm1_a  <= signed(resize(r2_sin_data(table_width-1 downto 1), table_width));
                     r6_cosm1_b  <= v3_dphase;
 
                 end if;
@@ -378,8 +378,8 @@ begin
                 -- Stage 9
 
                 -- Extract relevant bits of answer.
-                v9_sin_val  := r8_sinm1_p(accum1_bits-1 downto phase_bits);
-                v9_cos_val  := r8_cosm1_p(accum1_bits-1 downto phase_bits);
+                v9_sin_val  := r8_sinm1_p(accum1_bits-1 downto phase_bits-1);
+                v9_cos_val  := r8_cosm1_p(accum1_bits-1 downto phase_bits-1);
 
                 -- Choose between sin/cos based on quadrant.
                 if r8_quadrant(0) = '0' then
