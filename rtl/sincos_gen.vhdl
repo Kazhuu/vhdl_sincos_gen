@@ -57,15 +57,15 @@ architecture rtl of sincos_gen is
     constant table_width:   integer := data_bits;
 
     -- Number of bits in signed delta phase term.
-    constant dphase_bits:   integer := phase_bits - table_addrbits - 1;
+    constant dphase_bits:   integer := phase_bits - table_addrbits;
 
     -- Scaling for 1st order (final) Taylor correction.
-    constant accum1_bits:   integer := table_width + phase_bits - 1;
-    constant round_const1:  unsigned(phase_bits-3 downto 0) := (others => '1');
+    constant accum1_bits:   integer := table_width + phase_bits;
+    constant round_const1:  unsigned(phase_bits-2 downto 0) := (others => '1');
 
     -- Scaling for 2nd order Taylor correction.
-    constant accum2_bits:   integer := table_width + phase_bits;
-    constant round_const2:  unsigned(phase_bits-2 downto 0) := "0" & round_const1;
+    constant accum2_bits:   integer := table_width + phase_bits + 1;
+    constant round_const2:  unsigned(phase_bits-1 downto 0) := "0" & round_const1;
 
     -- Lookup table type.
     type table_type is array(0 to table_size-1) of
@@ -91,12 +91,12 @@ architecture rtl of sincos_gen is
 
     -- Internal registers.
     signal r1_quadrant: unsigned(1 downto 0);
-    signal r1_rphase:   signed(dphase_bits-2 downto 0);
+    signal r1_rphase:   signed(dphase_bits-3 downto 0);
     signal r1_dphase:   signed(dphase_bits-1 downto 0);
     signal r1_sin_addr: unsigned(table_addrbits-1 downto 0);
     signal r1_cos_addr: unsigned(table_addrbits-1 downto 0);
     signal r2_quadrant: unsigned(1 downto 0);
-    signal r2_rphase:   signed(dphase_bits-2 downto 0);
+    signal r2_rphase:   signed(dphase_bits-3 downto 0);
     signal r2_dphase:   signed(dphase_bits-1 downto 0);
     signal r2_sin_data: unsigned(table_width-1 downto 0);
     signal r2_cos_data: unsigned(table_width-1 downto 0);
@@ -152,7 +152,7 @@ begin
 
     -- Synchronous process.
     process (clk) is
-        variable v1_rphase:  signed(dphase_bits-2 downto 0);
+        variable v1_rphase:  signed(dphase_bits-3 downto 0);
         variable v3_dphase:  signed(dphase_bits-1 downto 0);
         variable v9_sin_val: signed(data_bits-1 downto 0);
         variable v9_cos_val: signed(data_bits-1 downto 0);
@@ -163,20 +163,73 @@ begin
 
             if clk_en = '1' then
 
+                --
+                -- "in_phase" is an unsigned integer of width (phase_bits).
+                -- We split it into three fields
+                --
+                --    MSB                                   LSB
+                --   (2 bits) (table_addrbits) (remaining bits)
+                --   -------------------------------------------
+                --   | .  . | .  .  .  .  . | .  .  .  .  .  . |
+                --   -------------------------------------------
+                --   quadrant  table index     phase remainder
+                --
+                -- The two most significant bits are the quadrant index
+                -- (0 .. 3). We keep this index for later.
+                -- Sine and cosine are calculated for the first quadrant,
+                -- then modified afterwards to step to the selected quadrant.
+                --
+                -- The following (table_addrbits) bits form an index into
+                -- the lookup table. Each entry in the lookup table represents
+                -- the ideal value for the midpoint of the corresponding
+                -- range of phase values.
+                --
+                -- The remaining least signifcant bits form the phase
+                -- remainder with respect to the lookup index.
+                -- If the phase remainder is "10000...", the lookup table
+                -- value is exactly right. Smaller than "10000..." requires
+                -- negative phase adjustment, larger than "1000..." requires
+                -- positive phase adjustment. The phase remainder can thus
+                -- be interpreted as a signed integer with the sign bit
+                -- inverted.
+                --
+                -- The phase remainder must be converted to radians
+                -- for use as Taylor correction coeffcient. This conversion
+                -- requires multiplication by Pi.
+                --
+                -- We use the following approximation of Pi with
+                -- 10 fractional bits:
+                --   Pi =~ 11.0010010001B
+                --
+                -- Multiplication by this factor is implemented through
+                -- shifting and adding:
+                --   x * Pi =~ (x << 1) + x + (x >> 3) + (x >> 6) + (x >> 10)
+                --
+                -- which can be decomposed as follows:
+                --   t1     =  (x << 1) + (x >> 3)
+                --   t2     =  t + (t >> 7)
+                --   x * Pi =~ x + t
+                --
+
                 -- Stage 1
 
                 -- Keep quadrant for later use.
                 r1_quadrant <= in_phase(phase_bits-1 downto phase_bits-2);
 
-                -- Extract phase remainder as signed number.
-                v1_rphase(dphase_bits-2) := not in_phase(dphase_bits-2);
-                v1_rphase(dphase_bits-3 downto 0) := signed(in_phase(dphase_bits-3 downto 0));
+                -- Extract phase remainder as signed number
+                -- (by simply inverting the sign bit).
+                v1_rphase(dphase_bits-3) := not in_phase(dphase_bits-3);
+                v1_rphase(dphase_bits-4 downto 0) := signed(in_phase(dphase_bits-4 downto 0));
 
-                -- Keep phase remainder and work on multiplication by Pi/2.
+                -- Keep phase remainder for later use.
                 r1_rphase   <= v1_rphase;
-                r1_dphase   <= resize(v1_rphase, dphase_bits) +
-                               resize(v1_rphase(dphase_bits-2 downto 4), dphase_bits) +
-                               signed("0" & v1_rphase(3 downto 3));
+
+                -- Multiply phase remainder by Pi, step 1.
+                --   t1 = (rphase << 1) + (rphase >> 3)
+                -- (apply rounding constant for truncation due to shift)
+                r1_dphase   <= resize(v1_rphase & "0", dphase_bits) +
+                               resize(v1_rphase(dphase_bits-3 downto 3), dphase_bits) +
+                               signed("0" & v1_rphase(2 downto 2));
 
                 -- Extract table index for sin and cos.
                 r1_sin_addr <= in_phase(phase_bits-3 downto
@@ -186,11 +239,13 @@ begin
 
                 -- Stage 2
 
-                -- Keep quadrant for later use.
+                -- Keep quadrant and phase remainder for later use.
                 r2_quadrant <= r1_quadrant;
-
-                -- Keep phase remainder and work on multiplication by Pi/2.
                 r2_rphase   <= r1_rphase;
+
+                -- Multiply phase remainder by Pi, step 2.
+                --   t2 = t1 + (t1 >> 7)
+                -- (apply rounding constant for truncation due to shift)
                 r2_dphase   <= r1_dphase +
                                resize(r1_dphase(dphase_bits-1 downto 7), dphase_bits) +
                                signed("0" & r1_dphase(6 downto 6));
@@ -201,9 +256,10 @@ begin
 
                 -- Stage 3
 
-                -- Finalize multiplication of phase remainder by Pi/2.
+                -- Multiply phase remainder by Pi, final step.
+                --   dphase = t2 + rphase
                 v3_dphase   := r2_dphase +
-                               resize(r2_rphase(dphase_bits-2 downto 1), dphase_bits);
+                               resize(r2_rphase, dphase_bits);
 
                 if taylor_order = 2 then
                     -- Handle 2nd order Taylor correction.
@@ -267,9 +323,9 @@ begin
                     r6_cos_data <= r5_cos_data;
 
                     -- Prepare multiplication for 1st order Taylor correction.
-                    r6_sinm1_a  <= r5_sinm2_p(accum2_bits-1 downto phase_bits-1);
+                    r6_sinm1_a  <= r5_sinm2_p(accum2_bits-1 downto phase_bits);
                     r6_sinm1_b  <= r5_dphase;
-                    r6_cosm1_a  <= r5_cosm2_p(accum2_bits-1 downto phase_bits-1);
+                    r6_cosm1_a  <= r5_cosm2_p(accum2_bits-1 downto phase_bits);
                     r6_cosm1_b  <= r5_dphase;
 
                 else
@@ -322,8 +378,8 @@ begin
                 -- Stage 9
 
                 -- Extract relevant bits of answer.
-                v9_sin_val  := r8_sinm1_p(accum1_bits-1 downto phase_bits-1);
-                v9_cos_val  := r8_cosm1_p(accum1_bits-1 downto phase_bits-1);
+                v9_sin_val  := r8_sinm1_p(accum1_bits-1 downto phase_bits);
+                v9_cos_val  := r8_cosm1_p(accum1_bits-1 downto phase_bits);
 
                 -- Choose between sin/cos based on quadrant.
                 if r8_quadrant(0) = '0' then
