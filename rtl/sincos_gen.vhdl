@@ -78,15 +78,20 @@ architecture rtl of sincos_gen is
         variable sin_int: integer;
     begin
         for i in 0 to table_size-1 loop
+            -- Calculate ideal value for mid-point of the i-th section of
+            -- the first quadrant of the sine function.
             sin_flt := sin(real(2*i + 1) / real(2 * table_size) * MATH_PI / 2.0);
+            -- Multiply by nominal amplitude and round to nearest integer.
+            -- Note: The table contains UNSIGNED integers of table_width bits.
             sin_int := integer(sin_flt * real(2**table_width - 2));
+            -- Store in table.
             tbl(i) := std_logic_vector(to_unsigned(sin_int, table_width));
         end loop;
         return tbl;
     end function;
 
     -- Lookup table for the first quarter-period of the sine.
-    -- lookup_table(i) = sin( (i + 0.5) / table_size * pi / 2 )
+    -- lookup_table[i] == sin( (i + 0.5) / table_size * pi / 2 )
     constant lookup_table: table_type := gen_table;
 
     -- Internal registers.
