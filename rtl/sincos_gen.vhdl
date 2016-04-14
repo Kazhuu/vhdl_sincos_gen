@@ -14,6 +14,12 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.math_real.all;
 
+
+--
+-- Calculate sine and cosine based on a lookup table with limited size,
+-- followed by 1st order or 2nd order Taylor interpolation.
+--
+
 entity sincos_gen is
 
     generic (
@@ -59,13 +65,13 @@ architecture rtl of sincos_gen is
     -- Number of bits in signed delta phase term.
     constant dphase_bits:   integer := phase_bits - table_addrbits;
 
-    -- Scaling for 1st order (final) Taylor correction.
-    constant accum1_bits:   integer := table_width + phase_bits - 1;
-    constant round_const1:  unsigned(phase_bits-3 downto 0) := (others => '1');
+    -- Number of (MSB) bits from lookup table used for Taylor correction.
+    constant coeff_bits:    integer := table_width + 4 - table_addrbits;
 
-    -- Scaling for 2nd order Taylor correction.
-    constant accum2_bits:   integer := table_width + phase_bits;
-    constant round_const2:  unsigned(phase_bits-2 downto 0) := "0" & round_const1;
+    -- Scaling after Taylor correction.
+    constant frac_bits:     integer := phase_bits + 4 - table_addrbits;
+    constant accum_bits:    integer := data_bits + frac_bits;
+    constant round_const:   unsigned(frac_bits-2 downto 0) := (others => '1');
 
     -- Lookup table type.
     type table_type is array(0 to table_size-1) of
@@ -109,39 +115,39 @@ architecture rtl of sincos_gen is
     signal r3_dphase:   signed(dphase_bits-1 downto 0);
     signal r3_sin_data: unsigned(table_width-1 downto 0);
     signal r3_cos_data: unsigned(table_width-1 downto 0);
-    signal r3_sinm2_a:  signed(table_width-1 downto 0);
+    signal r3_sinm2_a:  signed(coeff_bits-1 downto 0);
     signal r3_sinm2_b:  signed(dphase_bits-1 downto 0);
-    signal r3_cosm2_a:  signed(table_width-1 downto 0);
+    signal r3_cosm2_a:  signed(coeff_bits-1 downto 0);
     signal r3_cosm2_b:  signed(dphase_bits-1 downto 0);
     signal r4_quadrant: unsigned(1 downto 0);
     signal r4_dphase:   signed(dphase_bits-1 downto 0);
     signal r4_sin_data: unsigned(table_width-1 downto 0);
     signal r4_cos_data: unsigned(table_width-1 downto 0);
-    signal r4_sinm2_m:  signed(table_width+dphase_bits-1 downto 0);
-    signal r4_sinm2_c:  signed(accum2_bits-1 downto 0);
-    signal r4_cosm2_m:  signed(table_width+dphase_bits-1 downto 0);
-    signal r4_cosm2_c:  signed(accum2_bits-1 downto 0);
+    signal r4_sinm2_m:  signed(coeff_bits+dphase_bits-1 downto 0);
+    signal r4_sinm2_c:  signed(accum_bits-1 downto 0);
+    signal r4_cosm2_m:  signed(coeff_bits+dphase_bits-1 downto 0);
+    signal r4_cosm2_c:  signed(accum_bits-1 downto 0);
     signal r5_quadrant: unsigned(1 downto 0);
     signal r5_dphase:   signed(dphase_bits-1 downto 0);
     signal r5_sin_data: unsigned(table_width-1 downto 0);
     signal r5_cos_data: unsigned(table_width-1 downto 0);
-    signal r5_sinm2_p:  signed(accum2_bits-1 downto 0);
-    signal r5_cosm2_p:  signed(accum2_bits-1 downto 0);
+    signal r5_sinm2_p:  signed(accum_bits-1 downto 0);
+    signal r5_cosm2_p:  signed(accum_bits-1 downto 0);
     signal r6_quadrant: unsigned(1 downto 0);
     signal r6_sin_data: unsigned(table_width-1 downto 0);
     signal r6_cos_data: unsigned(table_width-1 downto 0);
-    signal r6_sinm1_a:  signed(table_width-1 downto 0);
+    signal r6_sinm1_a:  signed(coeff_bits downto 0);
     signal r6_sinm1_b:  signed(dphase_bits-1 downto 0);
-    signal r6_cosm1_a:  signed(table_width-1 downto 0);
+    signal r6_cosm1_a:  signed(coeff_bits downto 0);
     signal r6_cosm1_b:  signed(dphase_bits-1 downto 0);
     signal r7_quadrant: unsigned(1 downto 0);
-    signal r7_sinm1_m:  signed(table_width+dphase_bits-1 downto 0);
-    signal r7_sinm1_c:  signed(accum1_bits-1 downto 0);
-    signal r7_cosm1_m:  signed(table_width+dphase_bits-1 downto 0);
-    signal r7_cosm1_c:  signed(accum1_bits-1 downto 0);
+    signal r7_sinm1_m:  signed(coeff_bits+dphase_bits downto 0);
+    signal r7_sinm1_c:  signed(accum_bits-1 downto 0);
+    signal r7_cosm1_m:  signed(coeff_bits+dphase_bits downto 0);
+    signal r7_cosm1_c:  signed(accum_bits-1 downto 0);
     signal r8_quadrant: unsigned(1 downto 0);
-    signal r8_sinm1_p:  signed(accum1_bits-1 downto 0);
-    signal r8_cosm1_p:  signed(accum1_bits-1 downto 0);
+    signal r8_sinm1_p:  signed(accum_bits-1 downto 0);
+    signal r8_cosm1_p:  signed(accum_bits-1 downto 0);
     signal r8_sin_neg:  std_logic;
     signal r8_cos_neg:  std_logic;
 
@@ -223,18 +229,21 @@ begin
 
                 -- Extract phase remainder as signed number
                 -- (by simply inverting the sign bit).
-                v1_rphase(dphase_bits-3) := not in_phase(dphase_bits-3);
-                v1_rphase(dphase_bits-4 downto 0) := signed(in_phase(dphase_bits-4 downto 0));
+                v1_rphase(dphase_bits-3) :=
+                    not in_phase(dphase_bits-3);
+                v1_rphase(dphase_bits-4 downto 0) :=
+                    signed(in_phase(dphase_bits-4 downto 0));
 
                 -- Keep phase remainder for later use.
                 r1_rphase   <= v1_rphase;
 
-                -- Multiply phase remainder by Pi, step 1.
+                -- Multiply phase remainder by Pi, first step.
                 --   t1 = (rphase << 1) + (rphase >> 3)
                 -- (apply rounding constant for truncation due to shift)
-                r1_dphase   <= resize(v1_rphase & "0", dphase_bits) +
-                               resize(v1_rphase(dphase_bits-3 downto 3), dphase_bits) +
-                               signed("0" & v1_rphase(2 downto 2));
+                r1_dphase   <=
+                    resize(v1_rphase & "0", dphase_bits) +
+                    resize(v1_rphase(dphase_bits-3 downto 3), dphase_bits) +
+                    signed("0" & v1_rphase(2 downto 2));
 
                 -- Extract table index for sin and cos.
                 r1_sin_addr <= in_phase(phase_bits-3 downto
@@ -248,12 +257,13 @@ begin
                 r2_quadrant <= r1_quadrant;
                 r2_rphase   <= r1_rphase;
 
-                -- Multiply phase remainder by Pi, step 2.
+                -- Multiply phase remainder by Pi, next step.
                 --   t2 = t1 + (t1 >> 7)
                 -- (apply rounding constant for truncation due to shift)
-                r2_dphase   <= r1_dphase +
-                               resize(r1_dphase(dphase_bits-1 downto 7), dphase_bits) +
-                               signed("0" & r1_dphase(6 downto 6));
+                r2_dphase   <=
+                    r1_dphase +
+                    resize(r1_dphase(dphase_bits-1 downto 7), dphase_bits) +
+                    signed("0" & r1_dphase(6 downto 6));
 
                 -- Table lookup.
                 r2_sin_data <= unsigned(lookup_table(to_integer(r1_sin_addr)));
@@ -279,10 +289,29 @@ begin
                     r3_sin_data <= r2_sin_data;
                     r3_cos_data <= r2_cos_data;
 
+                    --
                     -- Prepare multiplication for 2nd order Taylor correction.
-                    r3_sinm2_a  <= signed(resize(r2_sin_data(table_width-1 downto 1), table_width));
+                    --   sin_t2 = sin_table + 0.5 * dphase * cos_table
+                    --   cos_t2 = cos_table - 0.5 * dphase * sin_table
+                    --
+                    -- Use only the (coeff_bits-1) MSB bits of the table value
+                    -- for the multiplication.
+                    --
+                    -- Convert table values from unsigned to signed (sign-ext).
+                    --
+
+                    r3_sinm2_a  <=
+                        signed(
+                          resize(r2_cos_data(table_width-1 downto
+                                             table_width-coeff_bits+1),
+                                 coeff_bits));
+                    r3_cosm2_a  <=
+                        signed(
+                          resize(r2_sin_data(table_width-1 downto
+                                             table_width-coeff_bits+1),
+                                 coeff_bits));
+
                     r3_sinm2_b  <= v3_dphase;
-                    r3_cosm2_a  <= signed(resize(r2_cos_data(table_width-1 downto 1), table_width));
                     r3_cosm2_b  <= v3_dphase;
 
                     -- Stage 4
@@ -300,9 +329,10 @@ begin
                     r4_cosm2_m  <= r3_cosm2_a * r3_cosm2_b;
 
                     -- Prepare to add Taylor correction to base value.
-                    -- Add a rounding constant.
-                    r4_sinm2_c  <= signed(resize(r3_cos_data & round_const2, accum2_bits));
-                    r4_cosm2_c  <= signed(resize(r3_sin_data & round_const2, accum2_bits));
+                    r4_sinm2_c  <= signed(resize(r3_sin_data & round_const,
+                                                 accum_bits));
+                    r4_cosm2_c  <= signed(resize(r3_cos_data & round_const,
+                                                 accum_bits));
 
                     -- Stage 5
 
@@ -315,8 +345,8 @@ begin
                     r5_cos_data <= r4_cos_data;
 
                     -- Add Taylor correction to base value.
-                    r5_sinm2_p  <= r4_sinm2_c - resize(r4_sinm2_m, accum2_bits);
-                    r5_cosm2_p  <= r4_cosm2_c + resize(r4_cosm2_m, accum2_bits);
+                    r5_sinm2_p  <= r4_sinm2_c + resize(r4_sinm2_m, accum_bits);
+                    r5_cosm2_p  <= r4_cosm2_c - resize(r4_cosm2_m, accum_bits);
 
                     -- Stage 6
 
@@ -327,10 +357,21 @@ begin
                     r6_sin_data <= r5_sin_data;
                     r6_cos_data <= r5_cos_data;
 
-                    -- Prepare multiplication for 1st order Taylor correction.
-                    r6_sinm1_a  <= r5_sinm2_p(accum2_bits-1 downto phase_bits);
+                    --
+                    -- Prepare multiplication for final Taylor correction.
+                    --   sin_corr = sin_table + dphase * cos_t2
+                    --   cos_corr = cos_table - dphase * sin_t2
+                    --
+                    -- Use only the coeff_bits MSB bits of the intermediate
+                    -- sin/cos values for the multiplication.
+                    --
+
+                    r6_sinm1_a  <= r5_sinm2_p(accum_bits-1 downto
+                                              accum_bits-coeff_bits-1);
+                    r6_cosm1_a  <= r5_cosm2_p(accum_bits-1 downto
+                                              accum_bits-coeff_bits-1);
+
                     r6_sinm1_b  <= r5_dphase;
-                    r6_cosm1_a  <= r5_cosm2_p(accum2_bits-1 downto phase_bits);
                     r6_cosm1_b  <= r5_dphase;
 
                 else
@@ -345,10 +386,29 @@ begin
                     r6_sin_data <= r2_sin_data;
                     r6_cos_data <= r2_cos_data;
 
+                    --
                     -- Prepare multiplication for 1st order Taylor correction.
-                    r6_sinm1_a  <= signed(resize(r2_cos_data(table_width-1 downto 1), table_width));
+                    --   sin_corr = sin_table + dphase * cos_table
+                    --   cos_corr = cos_table - dphase * sin_table
+                    --
+                    -- Use only the coeff_bits MSB bits of the table value
+                    -- for the multiplication.
+                    --
+                    -- Convert table values from unsigned to signed (sign-ext).
+                    --
+
+                    r6_sinm1_a  <=
+                        signed(
+                          resize(r2_cos_data(table_width-1 downto
+                                             table_width-coeff_bits),
+                                 coeff_bits+1));
+                    r6_cosm1_a  <=
+                        signed(
+                          resize(r2_sin_data(table_width-1 downto
+                                             table_width-coeff_bits),
+                                 coeff_bits+1));
+
                     r6_sinm1_b  <= v3_dphase;
-                    r6_cosm1_a  <= signed(resize(r2_sin_data(table_width-1 downto 1), table_width));
                     r6_cosm1_b  <= v3_dphase;
 
                 end if;
@@ -364,8 +424,10 @@ begin
 
                 -- Prepare to add Taylor correction to base value.
                 -- Add a rounding constant.
-                r7_sinm1_c  <= signed(resize(r6_sin_data & round_const1, accum1_bits));
-                r7_cosm1_c  <= signed(resize(r6_cos_data & round_const1, accum1_bits));
+                r7_sinm1_c  <= signed(resize(r6_sin_data & round_const,
+                                             accum_bits));
+                r7_cosm1_c  <= signed(resize(r6_cos_data & round_const,
+                                             accum_bits));
 
                 -- Stage 8
 
@@ -373,8 +435,8 @@ begin
                 r8_quadrant <= r7_quadrant;
 
                 -- Add Taylor correction to base value.
-                r8_sinm1_p  <= r7_sinm1_c + resize(r7_sinm1_m, accum1_bits);
-                r8_cosm1_p  <= r7_cosm1_c - resize(r7_cosm1_m, accum1_bits);
+                r8_sinm1_p  <= r7_sinm1_c + resize(r7_sinm1_m, accum_bits);
+                r8_cosm1_p  <= r7_cosm1_c - resize(r7_cosm1_m, accum_bits);
 
                 -- Decide positive/negative value based on quadrant.
                 r8_sin_neg  <= r7_quadrant(1);
@@ -383,28 +445,42 @@ begin
                 -- Stage 9
 
                 -- Extract relevant bits of answer.
-                v9_sin_val  := r8_sinm1_p(accum1_bits-1 downto phase_bits-1);
-                v9_cos_val  := r8_cosm1_p(accum1_bits-1 downto phase_bits-1);
+                v9_sin_val  := r8_sinm1_p(accum_bits-1 downto frac_bits);
+                v9_cos_val  := r8_cosm1_p(accum_bits-1 downto frac_bits);
+
+                --
+                -- Up to now all computations were done for the first quadrant.
+                -- Therefore v9_sin_val and v9_cos_val are the correct final
+                -- results iff r8_quadrant = 0.
+                -- Otherwise adjustments are needed.
+                --
 
                 -- Choose between sin/cos based on quadrant.
                 if r8_quadrant(0) = '0' then
+                    -- First or third quadrant; do not swap sin and cos.
                     v9_sin_mag  := v9_sin_val;
                     v9_cos_mag  := v9_cos_val;
                 else
+                    -- Second or fourth quadrant; swap sin and cos.
                     v9_sin_mag  := v9_cos_val;
                     v9_cos_mag  := v9_sin_val;
                 end if;
 
-                -- Choose positive/negative value based on quadrant.
+                -- Choose positive/negative sine value based on quadrant.
                 if r8_sin_neg = '0' then
+                    -- First or second quadrant; sine value is positive.
                     r_outsin    <= 0 + v9_sin_mag;
                 else
+                    -- Third or fourth quadrant; sine value is negative.
                     r_outsin    <= 0 - v9_sin_mag;
                 end if;
 
+                -- Choose positive/negative cosine value based on quadrant.
                 if r8_cos_neg = '0' then
+                    -- First or fourth quadrant; cosine value is positive.
                     r_outcos    <= 0 + v9_cos_mag;
                 else
+                    -- Second or third quadrant; cosine value is negative.
                     r_outcos    <= 0 - v9_cos_mag;
                 end if;
 
