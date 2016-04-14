@@ -60,14 +60,14 @@ begin
         clk_en      <= '1';
 
         -- Probe at a few different inputs.
-        for i in 0 to input_list'high+6 loop
+        for i in 0 to input_list'high+9 loop
 
             if i <= input_list'high then
                 in_phase    <= to_unsigned(input_list(i), 26);
             end if;
 
-            if i >= 6 then
-                report "  phase=" & integer'image(input_list(i-6)) &
+            if i >= 9 then
+                report "  phase=" & integer'image(input_list(i-9)) &
                        " sin=" & integer'image(to_integer(out_sin)) &
                        " cos=" & integer'image(to_integer(out_cos));
             end if;

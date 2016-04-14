@@ -366,9 +366,9 @@ begin
                     -- sin/cos values for the multiplication.
                     --
 
-                    r6_sinm1_a  <= r5_sinm2_p(accum_bits-1 downto
+                    r6_sinm1_a  <= r5_cosm2_p(accum_bits-1 downto
                                               accum_bits-coeff_bits-1);
-                    r6_cosm1_a  <= r5_cosm2_p(accum_bits-1 downto
+                    r6_cosm1_a  <= r5_sinm2_p(accum_bits-1 downto
                                               accum_bits-coeff_bits-1);
 
                     r6_sinm1_b  <= r5_dphase;
