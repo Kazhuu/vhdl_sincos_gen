@@ -1,5 +1,11 @@
 --
---  Sine / cosine function core
+--  Wrapper for sine / cosine function core
+--
+--  Copyright 2016 Joris van Rantwijk
+--
+--  This design is free software; you can redistribute it and/or
+--  modify it under the terms of the GNU Lesser General Public
+--  License as published by the Free Software Foundation; either
 --
 --  Phase input:
 --    unsigned 20 bits (2**20 steps for a full circle)
@@ -9,13 +15,6 @@
 --
 --  Latency:
 --    6 clock cycles
---
---  Copyright 2016 Joris van Rantwijk
---
---  This design is free software; you can redistribute it and/or
---  modify it under the terms of the GNU Lesser General Public
---  License as published by the Free Software Foundation; either
---  version 2.1 of the License, or (at your option) any later version.
 --
 
 library ieee;
