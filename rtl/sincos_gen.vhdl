@@ -66,10 +66,10 @@ architecture rtl of sincos_gen is
     constant dphase_bits:   integer := phase_bits - table_addrbits;
 
     -- Number of (MSB) bits from lookup table used for Taylor correction.
-    constant coeff_bits:    integer := table_width + 4 - table_addrbits;
+    constant coeff_bits:    integer := table_width + 3 - table_addrbits;
 
     -- Scaling after Taylor correction.
-    constant frac_bits:     integer := phase_bits + 4 - table_addrbits;
+    constant frac_bits:     integer := phase_bits + coeff_bits - table_width;
     constant accum_bits:    integer := data_bits + frac_bits;
     constant round_const:   unsigned(frac_bits-2 downto 0) := (others => '1');
 
