@@ -1,3 +1,7 @@
+#
+# Makefile for building test benches with GHDL (the free VHDL compiler).
+#
+
 
 GHDL = ghdl
 GHDLFLAGS =
