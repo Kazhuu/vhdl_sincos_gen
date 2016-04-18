@@ -36,9 +36,9 @@ begin
     process (clk) is
     begin
         if rising_edge(clk) then
-            r_in_phase  <= in_phase;
-            out_sin     <= s_out_sin;
-            out_cos     <= s_out_cos;
+            r_in_phase  <= unsigned(in_phase);
+            out_sin     <= std_logic_vector(s_out_sin);
+            out_cos     <= std_logic_vector(s_out_cos);
         end if;
     end process;
 
