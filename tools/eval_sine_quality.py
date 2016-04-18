@@ -92,7 +92,7 @@ def eval_sine_quality(data):
     print()
 
     # Determine peak and rms deviation.
-    tref = ampl * numpy.sin(2 * numpy.pi / n * numpy.arange(n) + phase)
+    tref = ampl * numpy.sin(2 * numpy.pi / n * numpy.arange(n))
     terr = dsin - tref
     del tref
 
