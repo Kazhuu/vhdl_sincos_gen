@@ -105,7 +105,8 @@ These two wrappers are the only tested variants of the core.
 Accuracy of the sine/cosine output from the cores has been determined from
 a simulation of the VHDL code on all possible phase input values.
 
-----
+--
+
 Core variant             sincos_gen_d18_p20      sincos_gen_d24_p26
 Phase input width                   20 bits                 26 bits
 Sin/cos output width                18 bits                 24 bits
@@ -122,10 +123,27 @@ Spurious-free dynamic range  129.81     dB
 
 cos(x) == sin(x+pi/2)           exact match
 sin(x) == - sin(x+pi)           exact match
-----
+
+--
 
 
   FPGA resources
   --------------
 
+--
+
+FPGA type               Xilinx Spartan-6 LX45-3
+Synthesizer             Xilinx ISE 14.7
+
+Core variant            d18_p20     d24_p26
+
+Flip-flops              134         250
+LUTs                    136         211
+RAMB16BWER                2           2
+RAMB8BWER                 0           2
+DSP48A1                   2           4
+
+Clock freq              230 MHz     230 MHz
+
+--
 
