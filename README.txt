@@ -132,18 +132,21 @@ sin(x) == - sin(x+pi)           exact match
 
 --
 
-FPGA type               Xilinx Spartan-6 LX45-3
-Synthesizer             Xilinx ISE 14.7
+FPGA type               Xilinx Spartan-6 LX45-3     Xilinx Virtex-7 485T-1
+Synthesizer             Xilinx ISE 14.7             Xilinx Vivado 2014.4.1
 
-Core variant            d18_p20     d24_p26
+Core variant            d18_p20     d24_p26         d18_p20     d24_p26
 
-Flip-flops              134         250
-LUTs                    136         211
-RAMB16BWER                2           2
-RAMB8BWER                 0           2
+Flip-flops              134         250             151         291
+LUTs                    118         204             115         181
+RAMB18                    0           0               1           0
+RAMB36                    0           0               0           1
+DSP48E1                   0           0               2           4
+RAMB16BWER                1           1
+RAMB8BWER                 0           1
 DSP48A1                   2           4
 
-Clock freq              230 MHz     230 MHz
+Clock freq              230 MHz     230 MHz         400 MHz     400 MHz
 
 --
 
