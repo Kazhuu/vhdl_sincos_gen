@@ -98,7 +98,10 @@ architecture rtl of sincos_gen is
 
     -- Lookup table for the first quarter-period of the sine.
     -- lookup_table[i] == sin( (i + 0.5) / table_size * pi / 2 )
-    constant lookup_table: table_type := gen_table;
+    --
+    -- Note: This must be a signal, not a constant, otherwise Xilinx
+    -- tools will not properly infer block RAM.
+    signal lookup_table: table_type := gen_table;
 
     -- Internal registers.
     signal r1_quadrant: unsigned(1 downto 0);
@@ -156,9 +159,10 @@ architecture rtl of sincos_gen is
     signal r_outcos:    signed(data_bits-1 downto 0);
 
     -- Attributes for Xilinx synthesis.
+    -- Note: This is necessary, otherwise Vivado will not properly
+    -- infer block RAM.
     attribute rom_style: string;
-    attribute rom_style of r2_sin_data: signal is "block";
-    attribute rom_style of r2_cos_data: signal is "block";
+    attribute rom_style of lookup_table: signal is "block";
 
 begin
 
