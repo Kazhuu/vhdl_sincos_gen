@@ -104,13 +104,13 @@ architecture rtl of sincos_gen is
     signal r1_quadrant: unsigned(1 downto 0);
     signal r1_rphase:   signed(dphase_bits-3 downto 0);
     signal r1_dphase:   signed(dphase_bits-1 downto 0);
-    signal r1_sin_addr: unsigned(table_addrbits-1 downto 0);
-    signal r1_cos_addr: unsigned(table_addrbits-1 downto 0);
+    signal r1_sin_addr: std_logic_vector(table_addrbits-1 downto 0);
+    signal r1_cos_addr: std_logic_vector(table_addrbits-1 downto 0);
     signal r2_quadrant: unsigned(1 downto 0);
     signal r2_rphase:   signed(dphase_bits-3 downto 0);
     signal r2_dphase:   signed(dphase_bits-1 downto 0);
-    signal r2_sin_data: unsigned(table_width-1 downto 0);
-    signal r2_cos_data: unsigned(table_width-1 downto 0);
+    signal r2_sin_data: std_logic_vector(table_width-1 downto 0);
+    signal r2_cos_data: std_logic_vector(table_width-1 downto 0);
     signal r3_quadrant: unsigned(1 downto 0);
     signal r3_dphase:   signed(dphase_bits-1 downto 0);
     signal r3_sin_data: unsigned(table_width-1 downto 0);
@@ -154,6 +154,11 @@ architecture rtl of sincos_gen is
     -- Output registers.
     signal r_outsin:    signed(data_bits-1 downto 0);
     signal r_outcos:    signed(data_bits-1 downto 0);
+
+    -- Attributes for Xilinx synthesis.
+    attribute rom_style: string;
+    attribute rom_style of r2_sin_data: signal is "block";
+    attribute rom_style of r2_cos_data: signal is "block";
 
 begin
 
@@ -246,10 +251,12 @@ begin
                     signed("0" & v1_rphase(2 downto 2));
 
                 -- Extract table index for sin and cos.
-                r1_sin_addr <= in_phase(phase_bits-3 downto
-                                        phase_bits-2-table_addrbits);
-                r1_cos_addr <= not in_phase(phase_bits-3 downto
-                                            phase_bits-2-table_addrbits);
+                r1_sin_addr <=
+                    std_logic_vector(in_phase(phase_bits-3 downto
+                                              phase_bits-2-table_addrbits));
+                r1_cos_addr <=
+                    not std_logic_vector(in_phase(phase_bits-3 downto
+                                                  phase_bits-2-table_addrbits));
 
                 -- Stage 2
 
@@ -266,8 +273,8 @@ begin
                     signed("0" & r1_dphase(6 downto 6));
 
                 -- Table lookup.
-                r2_sin_data <= unsigned(lookup_table(to_integer(r1_sin_addr)));
-                r2_cos_data <= unsigned(lookup_table(to_integer(r1_cos_addr)));
+                r2_sin_data <= lookup_table(to_integer(unsigned(r1_sin_addr)));
+                r2_cos_data <= lookup_table(to_integer(unsigned(r1_cos_addr)));
 
                 -- Stage 3
 
@@ -286,8 +293,8 @@ begin
                     r3_dphase   <= v3_dphase;
 
                     -- Keep sin/cos table values for later use.
-                    r3_sin_data <= r2_sin_data;
-                    r3_cos_data <= r2_cos_data;
+                    r3_sin_data <= unsigned(r2_sin_data);
+                    r3_cos_data <= unsigned(r2_cos_data);
 
                     --
                     -- Prepare multiplication for 2nd order Taylor correction.
@@ -301,15 +308,15 @@ begin
                     --
 
                     r3_sinm2_a  <=
-                        signed(
-                          resize(r2_cos_data(table_width-1 downto
-                                             table_width-coeff_bits+1),
-                                 coeff_bits));
+                        signed(resize(
+                            unsigned(r2_cos_data(table_width-1 downto
+                                                 table_width-coeff_bits+1)),
+                            coeff_bits));
                     r3_cosm2_a  <=
-                        signed(
-                          resize(r2_sin_data(table_width-1 downto
-                                             table_width-coeff_bits+1),
-                                 coeff_bits));
+                        signed(resize(
+                            unsigned(r2_sin_data(table_width-1 downto
+                                                 table_width-coeff_bits+1)),
+                            coeff_bits));
 
                     r3_sinm2_b  <= v3_dphase;
                     r3_cosm2_b  <= v3_dphase;
@@ -383,8 +390,8 @@ begin
                     r6_quadrant <= r2_quadrant;
 
                     -- Keep sin/cos table value for later use.
-                    r6_sin_data <= r2_sin_data;
-                    r6_cos_data <= r2_cos_data;
+                    r6_sin_data <= unsigned(r2_sin_data);
+                    r6_cos_data <= unsigned(r2_cos_data);
 
                     --
                     -- Prepare multiplication for 1st order Taylor correction.
@@ -398,15 +405,15 @@ begin
                     --
 
                     r6_sinm1_a  <=
-                        signed(
-                          resize(r2_cos_data(table_width-1 downto
-                                             table_width-coeff_bits),
-                                 coeff_bits+1));
+                        signed(resize(
+                            unsigned(r2_cos_data(table_width-1 downto
+                                                 table_width-coeff_bits)),
+                            coeff_bits+1));
                     r6_cosm1_a  <=
-                        signed(
-                          resize(r2_sin_data(table_width-1 downto
-                                             table_width-coeff_bits),
-                                 coeff_bits+1));
+                        signed(resize(
+                            unsigned(r2_sin_data(table_width-1 downto
+                                                 table_width-coeff_bits)),
+                            coeff_bits+1));
 
                     r6_sinm1_b  <= v3_dphase;
                     r6_cosm1_b  <= v3_dphase;
