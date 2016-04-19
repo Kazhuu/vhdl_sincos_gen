@@ -63,6 +63,8 @@ architecture rtl of test_sincos_serial is
     signal r_clkmod_cnt:    unsigned(3 downto 0);
     signal r_clkmod_tmp:    std_logic;
 
+    signal r_ctl_state:     std_logic_vector(3 downto 0);
+
     signal r_ser_rx_strobe: std_logic;
     signal r_ser_rx_byte:   std_logic_vector(7 downto 0);
     signal r_ser_rx_glitch: std_logic_vector(7 downto 0);
@@ -151,7 +153,7 @@ begin
     begin
         if rising_edge(clk) then
 
-            if r_clkmod = '1' then
+            if r_clkmod = '0' then
                 -- Clock-enable modulation disabled.
                 r_clk_en        <= '1';
             else
@@ -178,7 +180,115 @@ begin
         end if;
     end process;
 
--- TODO : byte-level protocol
+    -- Synchronous process.
+    -- Byte-level serial protocol.
+    process (clk) is
+    begin
+        if rising_edge(clk) then
+
+            r_ser_tx_strobe     <= '0';
+            r_tst_start         <= '0';
+
+            if r_ctl_state = "0000" and
+               r_ser_rx_strobe = '1' and r_ser_rx_byte = x"41" then
+                r_ctl_state     <= "0001";
+            end if;
+
+            if r_ctl_state = "0001" and r_ser_rx_strobe = '1' then
+                if r_ser_rx_byte = x"42" then
+                    r_ctl_state     <= "0010";
+                elsif r_ser_rx_byte = x"43" then
+                    r_ctl_state     <= "0000";
+                    r_clkmod        <= '1';
+                elsif r_ser_rx_byte = x"44" then
+                    r_ctl_state     <= "0000";
+                    r_clkmod        <= '0';
+                else
+                    r_ctl_state     <= "0000";
+                end if;
+            end if;
+
+            if r_ctl_state = "0010" and r_ser_rx_strobe = '1' then
+                r_ctl_state     <= "0011";
+                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+            end if;
+
+            if r_ctl_state = "0011" and r_ser_rx_strobe = '1' then
+                r_ctl_state     <= "0100";
+                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+            end if;
+
+            if r_ctl_state = "0100" and r_ser_rx_strobe = '1' then
+                r_ctl_state     <= "0101";
+                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+            end if;
+
+            if r_ctl_state = "0101" and r_ser_rx_strobe = '1' then
+                r_ctl_state     <= "0110";
+                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+                r_tst_start     <= '1';
+            end if;
+
+            if r_ctl_state = "0110" and r_tst_start = '0' and r_tst_busy = '0' then
+                r_ctl_state     <= "0111";
+            end if;
+
+            if r_ctl_state = "0111" and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "1000";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(7 downto 0))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            if r_ctl_state = "1000" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "1001";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(15 downto 8))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            if r_ctl_state = "1001" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "1010";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(23 downto 15))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            if r_ctl_state = "1010" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "1011";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(31 downto 24))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            if r_ctl_state = "1011" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "1100";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(7 downto 0))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            if r_ctl_state = "1100" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "1101";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(15 downto 8))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            if r_ctl_state = "1101" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "1110";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(23 downto 15))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            if r_ctl_state = "1110" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
+                r_ctl_state     <= "0000";
+                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(31 downto 24))
+                r_ser_tx_strobe <= '1';
+            end if;
+
+            -- Synchronous reset.
+            if rst = '1' then
+                r_ctl_state     <= "0000";
+                r_clkmod        <= '0';
+            end if;
+
+        end if;
+    end process;
 
     -- Synchronous process.
     -- Serial port RX machine.
