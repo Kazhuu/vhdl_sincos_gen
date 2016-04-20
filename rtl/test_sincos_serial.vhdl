@@ -53,9 +53,9 @@ architecture rtl of test_sincos_serial is
     signal s_gen2_out_cos:  signed(23 downto 0);
 
     signal r_tst_start:     std_logic;
-    signal r_tst_in_phase:  unsigned(31 downto 0);
-    signal r_tst_out_sin:   unsigned(31 downto 0);
-    signal r_tst_out_cos:   unsigned(31 downto 0);
+    signal r_tst_in_phase:  std_logic_vector(31 downto 0);
+    signal r_tst_out_sin:   std_logic_vector(31 downto 0);
+    signal r_tst_out_cos:   std_logic_vector(31 downto 0);
     signal r_tst_busy:      std_logic;
     signal r_tst_cyclecnt:  unsigned(3 downto 0);
 
@@ -71,7 +71,7 @@ architecture rtl of test_sincos_serial is
     signal r_ser_rx_bit:    std_logic;
     signal r_ser_rx_timer:  unsigned(12 downto 0);
     signal r_ser_rx_timeout: std_logic;
-    signal r_ser_rx_state;  std_logic_vector(1 downto 0);
+    signal r_ser_rx_state:  std_logic_vector(1 downto 0);
     signal r_ser_rx_shift:  std_logic_vector(8 downto 0);
 
     signal r_ser_tx_strobe: std_logic;
@@ -130,13 +130,13 @@ begin
 
             if r_tst_busy = '1' and r_tst_cyclecnt = latency then
                 r_tst_busy      <= '0';
-                r_tst_out_sin   <= s_out_sin;
-                r_tst_out_cos   <= s_out_cos;
+                r_tst_out_sin   <= std_logic_vector(s_out_sin);
+                r_tst_out_cos   <= std_logic_vector(s_out_cos);
             end if;
 
             if r_tst_start = '1' and r_tst_busy = '0' then
                 r_tst_busy      <= '1';
-                r_in_phase      <= r_tst_in_phase;
+                r_in_phase      <= unsigned(r_tst_in_phase);
                 r_tst_cyclecnt  <= (others => '0');
             end if;
 
@@ -210,22 +210,22 @@ begin
 
             if r_ctl_state = "0010" and r_ser_rx_strobe = '1' then
                 r_ctl_state     <= "0011";
-                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+                r_tst_in_phase  <= r_ser_rx_byte & r_tst_in_phase(31 downto 8);
             end if;
 
             if r_ctl_state = "0011" and r_ser_rx_strobe = '1' then
                 r_ctl_state     <= "0100";
-                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+                r_tst_in_phase  <= r_ser_rx_byte & r_tst_in_phase(31 downto 8);
             end if;
 
             if r_ctl_state = "0100" and r_ser_rx_strobe = '1' then
                 r_ctl_state     <= "0101";
-                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+                r_tst_in_phase  <= r_ser_rx_byte & r_tst_in_phase(31 downto 8);
             end if;
 
             if r_ctl_state = "0101" and r_ser_rx_strobe = '1' then
                 r_ctl_state     <= "0110";
-                r_tst_in_phase  <= unsigned(r_ser_rx_byte) & r_tst_in_phase(31 downto 8);
+                r_tst_in_phase  <= r_ser_rx_byte & r_tst_in_phase(31 downto 8);
                 r_tst_start     <= '1';
             end if;
 
@@ -235,49 +235,49 @@ begin
 
             if r_ctl_state = "0111" and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "1000";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(7 downto 0))
+                r_ser_tx_byte   <= r_tst_out_sin(7 downto 0);
                 r_ser_tx_strobe <= '1';
             end if;
 
             if r_ctl_state = "1000" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "1001";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(15 downto 8))
+                r_ser_tx_byte   <= r_tst_out_sin(15 downto 8);
                 r_ser_tx_strobe <= '1';
             end if;
 
             if r_ctl_state = "1001" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "1010";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(23 downto 15))
+                r_ser_tx_byte   <= r_tst_out_sin(23 downto 16);
                 r_ser_tx_strobe <= '1';
             end if;
 
             if r_ctl_state = "1010" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "1011";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_sin(31 downto 24))
+                r_ser_tx_byte   <= r_tst_out_sin(31 downto 24);
                 r_ser_tx_strobe <= '1';
             end if;
 
             if r_ctl_state = "1011" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "1100";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(7 downto 0))
+                r_ser_tx_byte   <= r_tst_out_cos(7 downto 0);
                 r_ser_tx_strobe <= '1';
             end if;
 
             if r_ctl_state = "1100" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "1101";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(15 downto 8))
+                r_ser_tx_byte   <= r_tst_out_cos(15 downto 8);
                 r_ser_tx_strobe <= '1';
             end if;
 
             if r_ctl_state = "1101" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "1110";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(23 downto 15))
+                r_ser_tx_byte   <= r_tst_out_cos(23 downto 16);
                 r_ser_tx_strobe <= '1';
             end if;
 
             if r_ctl_state = "1110" and r_ser_tx_strobe = '0' and r_ser_tx_busy = '0' then
                 r_ctl_state     <= "0000";
-                r_ser_tx_byte   <= std_logic_vector(r_tst_out_cos(31 downto 24))
+                r_ser_tx_byte   <= r_tst_out_cos(31 downto 24);
                 r_ser_tx_strobe <= '1';
             end if;
 
@@ -302,9 +302,9 @@ begin
             -- Deglitch filter.
             r_ser_rx_glitch <= r_ser_rx_glitch(6 downto 0) & ser_rx;
             if r_ser_rx_glitch(7 downto 1) = "0000000" then
-                r_ser_rxbit <= '0';
+                r_ser_rx_bit <= '0';
             elsif r_ser_rx_glitch(7 downto 1) = "1111111" then
-                r_ser_rxbit <= '1';
+                r_ser_rx_bit <= '1';
             end if;
 
             -- Bit timer.
@@ -325,7 +325,7 @@ begin
                 -- Wait for start of byte.
                 r_ser_rx_shift(7 downto 0)  <= (others => '0');
                 r_ser_rx_shift(8) <= '1';
-                r_ser_rx_timer  <= to_unsigned(serial_bitrate_divider / 2 - 2, 13);
+                r_ser_rx_timer  <= to_unsigned(serial_bitrate_divider / 2 - 2, r_ser_rx_timer'length);
                 r_ser_rx_timeout <= '0';
                 if r_ser_rx_bit = '0' then
                     r_ser_rx_state  <= "10";
@@ -346,7 +346,7 @@ begin
                         end if;
                         r_ser_rx_state  <= "11";
                     end if;
-                    r_ser_rx_timer  <= to_unsigned(serial_bitrate_divider - 2);
+                    r_ser_rx_timer  <= to_unsigned(serial_bitrate_divider - 2, r_ser_rx_timer'length);
                 end if;
             else
                 -- Invalid state.
@@ -382,7 +382,7 @@ begin
             if r_ser_tx_busy = '0' then
 
                 -- Wait for start of byte.
-                r_ser_tx_timer  <= to_unsigned(serial_bitrate_divider - 2, 13);
+                r_ser_tx_timer  <= to_unsigned(serial_bitrate_divider - 2, r_ser_tx_timer'length);
                 r_ser_tx_timeout <= '0';
                 r_ser_tx_shift  <= r_ser_tx_byte;
                 r_ser_tx_bitcnt <= to_unsigned(9, 4);
@@ -392,13 +392,13 @@ begin
                     r_ser_tx_busy   <= '1';
                 end if;
 
-            elsif r_ser_tx_busy = '1' and r_ser_tx_timout = '1' then
+            elsif r_ser_tx_busy = '1' and r_ser_tx_timeout = '1' then
 
                 -- Send next bit.
                 r_ser_tx_bit    <= r_ser_tx_shift(0);
                 r_ser_tx_shift  <= "1" & r_ser_tx_shift(7 downto 1);
                 r_ser_tx_bitcnt <= r_ser_tx_bitcnt - 1;
-                r_ser_tx_timer  <= to_unsigned(serial_bitrate_divider - 2, 13);
+                r_ser_tx_timer  <= to_unsigned(serial_bitrate_divider - 2, r_ser_tx_timer'length);
                 if r_ser_tx_bitcnt = 0 then
                     -- Just completed stop bit.
                     r_ser_tx_busy   <= '0';
