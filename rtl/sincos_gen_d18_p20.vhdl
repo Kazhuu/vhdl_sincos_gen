@@ -51,6 +51,7 @@ begin
         generic map (
             data_bits       => 18,
             phase_bits      => 20,
+            phase_extrabits => 2,
             table_addrbits  => 10,
             taylor_order    => 1 )
         port map (

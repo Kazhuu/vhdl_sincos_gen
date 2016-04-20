@@ -33,6 +33,9 @@ entity sincos_gen is
         -- Number of address bits for lookup table.
         table_addrbits: integer := 10;
 
+        -- Number of extra phase bits used internally.
+        phase_extrabits: integer := 1;
+
         -- Select 1st order or 2nd order Taylor correction.
         taylor_order:   integer range 1 to 2 := 1 );
 
@@ -63,13 +66,15 @@ architecture rtl of sincos_gen is
     constant table_width:   integer := data_bits;
 
     -- Number of bits in signed delta phase term.
-    constant dphase_bits:   integer := phase_bits - table_addrbits;
+    constant rphase_bits:   integer := phase_bits - table_addrbits - 2;
+    constant dphase_bits:   integer := rphase_bits + phase_extrabits + 1;
 
     -- Number of (MSB) bits from lookup table used for Taylor correction.
     constant coeff_bits:    integer := table_width + 3 - table_addrbits;
 
     -- Scaling after Taylor correction.
-    constant frac_bits:     integer := phase_bits + coeff_bits - table_width;
+    constant frac_bits:     integer := phase_bits + phase_extrabits - 1 +
+                                       coeff_bits - table_width;
     constant accum_bits:    integer := data_bits + frac_bits;
     constant round_const:   unsigned(frac_bits-2 downto 0) := (others => '1');
 
@@ -105,12 +110,12 @@ architecture rtl of sincos_gen is
 
     -- Internal registers.
     signal r1_quadrant: unsigned(1 downto 0);
-    signal r1_rphase:   signed(dphase_bits-3 downto 0);
+    signal r1_rphase:   signed(rphase_bits-1 downto 0);
     signal r1_dphase:   signed(dphase_bits-1 downto 0);
     signal r1_sin_addr: std_logic_vector(table_addrbits-1 downto 0);
     signal r1_cos_addr: std_logic_vector(table_addrbits-1 downto 0);
     signal r2_quadrant: unsigned(1 downto 0);
-    signal r2_rphase:   signed(dphase_bits-3 downto 0);
+    signal r2_rphase:   signed(rphase_bits-1 downto 0);
     signal r2_dphase:   signed(dphase_bits-1 downto 0);
     signal r2_sin_data: std_logic_vector(table_width-1 downto 0);
     signal r2_cos_data: std_logic_vector(table_width-1 downto 0);
@@ -172,7 +177,9 @@ begin
 
     -- Synchronous process.
     process (clk) is
-        variable v1_rphase:  signed(dphase_bits-3 downto 0);
+        variable v1_rphase:  signed(rphase_bits-1 downto 0);
+        variable v1_xphase:  signed(rphase_bits+phase_extrabits-1 downto 0);
+        variable v3_xphase:  signed(rphase_bits+phase_extrabits-1 downto 0);
         variable v3_dphase:  signed(dphase_bits-1 downto 0);
         variable v9_sin_val: signed(data_bits-1 downto 0);
         variable v9_cos_val: signed(data_bits-1 downto 0);
@@ -199,36 +206,36 @@ begin
                 -- Sine and cosine are calculated for the first quadrant,
                 -- then modified afterwards to step to the selected quadrant.
                 --
-                -- The following (table_addrbits) bits form an index into
+                -- The middle (table_addrbits) bits form an index into
                 -- the lookup table. Each entry in the lookup table represents
                 -- the ideal value for the midpoint of the corresponding
                 -- range of phase values.
                 --
                 -- The remaining least signifcant bits form the phase
                 -- remainder with respect to the lookup index.
-                -- If the phase remainder is "10000...", the lookup table
-                -- value is exactly right. Smaller than "10000..." requires
-                -- negative phase adjustment, larger than "1000..." requires
+                -- If the phase remainder is "1000..0", the lookup table
+                -- value is exactly right. Smaller than "1000..0" requires
+                -- negative phase adjustment, larger than "100..0" requires
                 -- positive phase adjustment. The phase remainder can thus
                 -- be interpreted as a signed integer with the sign bit
                 -- inverted.
                 --
                 -- The phase remainder must be converted to radians
                 -- for use as Taylor correction coeffcient. This conversion
-                -- requires multiplication by Pi.
+                -- requires multiplication by Pi/2.
                 --
-                -- We use the following approximation of Pi with
-                -- 10 fractional bits:
-                --   Pi =~ 11.0010010001B
+                -- We use the following approximation of Pi/2 with
+                -- 11 fractional bits:
+                --   Pi/2 =~ 1.5708 =~ 1.10010010001B
                 --
                 -- Multiplication by this factor is implemented through
                 -- shifting and adding:
-                --   x * Pi =~ (x << 1) + x + (x >> 3) + (x >> 6) + (x >> 10)
+                --   x * Pi/2 =~ x + (x >> 1) + (x >> 4) + (x >> 7) + (x >> 11)
                 --
                 -- which can be decomposed as follows:
-                --   t1     =  (x << 1) + (x >> 3)
-                --   t2     =  t + (t >> 7)
-                --   x * Pi =~ x + t
+                --   t1       =  x + (x >> 4)
+                --   t2       =  t + (t >> 7)
+                --   x * Pi/2 =~ (x >> 1) + t
                 --
 
                 -- Stage 1
@@ -238,21 +245,22 @@ begin
 
                 -- Extract phase remainder as signed number
                 -- (by simply inverting the sign bit).
-                v1_rphase(dphase_bits-3) :=
-                    not in_phase(dphase_bits-3);
-                v1_rphase(dphase_bits-4 downto 0) :=
-                    signed(in_phase(dphase_bits-4 downto 0));
+                v1_rphase(rphase_bits-1 downto 0) :=
+                    not in_phase(rphase_bits-1);
+                v1_rphase(rphase_bits-2 downto 0) :=
+                    signed(in_phase(rphase_bits-2 downto 0));
 
                 -- Keep phase remainder for later use.
                 r1_rphase   <= v1_rphase;
 
-                -- Multiply phase remainder by Pi, first step.
-                --   t1 = (rphase << 1) + (rphase >> 3)
+                -- Multiply phase remainder by Pi/2, first step.
+                --   t1 = rphase + (rphase >> 4)
+                -- (left-shift to add extra phase bits to increase accuracy)
                 -- (apply rounding constant for truncation due to shift)
-                r1_dphase   <=
-                    resize(v1_rphase & "0", dphase_bits) +
-                    resize(v1_rphase(dphase_bits-3 downto 3), dphase_bits) +
-                    signed("0" & v1_rphase(2 downto 2));
+                v1_xphase   := shift_left(v1_rphase, phase_extrabits);
+                r1_dphase   <= resize(v1_xphase, dphase_bits) +
+                               resize(shift_right(v1_xphase, 4), dphase_bits) +
+                               signed("0" & v1_xphase(3 downto 3));
 
                 -- Extract table index for sin and cos.
                 r1_sin_addr <=
@@ -268,13 +276,12 @@ begin
                 r2_quadrant <= r1_quadrant;
                 r2_rphase   <= r1_rphase;
 
-                -- Multiply phase remainder by Pi, next step.
+                -- Multiply phase remainder by Pi/2, next step.
                 --   t2 = t1 + (t1 >> 7)
                 -- (apply rounding constant for truncation due to shift)
-                r2_dphase   <=
-                    r1_dphase +
-                    resize(r1_dphase(dphase_bits-1 downto 7), dphase_bits) +
-                    signed("0" & r1_dphase(6 downto 6));
+                r2_dphase   <= r1_dphase +
+                               resize(shift_right(r1_dphase, 7), dphase_bits) +
+                               signed("0" & r1_dphase(6 downto 6));
 
                 -- Table lookup.
                 r2_sin_data <= lookup_table(to_integer(unsigned(r1_sin_addr)));
@@ -282,10 +289,14 @@ begin
 
                 -- Stage 3
 
-                -- Multiply phase remainder by Pi, final step.
-                --   dphase = t2 + rphase
+                -- Multiply phase remainder by Pi/2, final step.
+                --   dphase = t2 + (rphase >> 1)
+                -- (left-shift to add extra phase bits to increase accuracy)
+                -- (apply rounding constant for truncation due to shift)
+                v3_xphase   := shift_left(r2_rphase, phase_extrabits);
                 v3_dphase   := r2_dphase +
-                               resize(r2_rphase, dphase_bits);
+                               resize(shift_right(v3_xphase, 1), dphase_bits) +
+                               signed("0" & v3_xphase(0 downto 0));
 
                 if taylor_order = 2 then
                     -- Handle 2nd order Taylor correction.
