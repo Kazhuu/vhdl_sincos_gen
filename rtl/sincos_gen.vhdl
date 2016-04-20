@@ -245,7 +245,7 @@ begin
 
                 -- Extract phase remainder as signed number
                 -- (by simply inverting the sign bit).
-                v1_rphase(rphase_bits-1 downto 0) :=
+                v1_rphase(rphase_bits-1) :=
                     not in_phase(rphase_bits-1);
                 v1_rphase(rphase_bits-2 downto 0) :=
                     signed(in_phase(rphase_bits-2 downto 0));
@@ -255,9 +255,10 @@ begin
 
                 -- Multiply phase remainder by Pi/2, first step.
                 --   t1 = rphase + (rphase >> 4)
-                -- (left-shift to add extra phase bits to increase accuracy)
+                -- (add extra '0' bits to increase accuracy)
                 -- (apply rounding constant for truncation due to shift)
-                v1_xphase   := shift_left(v1_rphase, phase_extrabits);
+                v1_xphase(v1_xphase'high downto phase_extrabits) := v1_rphase;
+                v1_xphase(phase_extrabits-1 downto 0) := (others => '0');
                 r1_dphase   <= resize(v1_xphase, dphase_bits) +
                                resize(shift_right(v1_xphase, 4), dphase_bits) +
                                signed("0" & v1_xphase(3 downto 3));
@@ -291,9 +292,10 @@ begin
 
                 -- Multiply phase remainder by Pi/2, final step.
                 --   dphase = t2 + (rphase >> 1)
-                -- (left-shift to add extra phase bits to increase accuracy)
+                -- (add extra '0' bits to increase accuracy)
                 -- (apply rounding constant for truncation due to shift)
-                v3_xphase   := shift_left(r2_rphase, phase_extrabits);
+                v3_xphase(v3_xphase'high downto phase_extrabits) := r2_rphase;
+                v3_xphase(phase_extrabits-1 downto 0) := (others => '0');
                 v3_dphase   := r2_dphase +
                                resize(shift_right(v3_xphase, 1), dphase_bits) +
                                signed("0" & v3_xphase(0 downto 0));
