@@ -105,25 +105,24 @@ These two wrappers are the only tested variants of the core.
 Accuracy of the sine/cosine output from the cores has been determined from
 a simulation of the VHDL code on all possible phase input values.
 
+
 ----
+Core variant:                sincos_gen_d18_p20      sincos_gen_d24_p26
+Phase input width:                      20 bits                 26 bits
+Sin/cos output width:                   18 bits                 24 bits
 
-Core variant                 sincos_gen_d18_p20      sincos_gen_d24_p26
-Phase input width                       20 bits                 26 bits
-Sin/cos output width                    18 bits                 24 bits
+Amplitude:                    131071.008128 lsb     8388606.997508 lsb
+Offset:                            0.000000 lsb           0.000000 lsb
+Phase mismatch:                    1.30e-7  rad           1.94e-9  rad
 
-Amplitude                     131071.008033 lsb     8388606.997478 lsb
-Offset                             0.000000 lsb           0.000000 lsb
-Phase mismatch                     1.30e-7  rad           1.99e-9  rad
+Peak absolute error:               0.864721 lsb           0.917662 lsb
+Root-mean-square error:            0.325144 lsb rms       0.326538 lsb rms
+SINAD:                           109.09     dB          145.18     dB
+Effective nr of bits:             17.83     bits         23.82     bits
+Spurious-free dynamic range:     135.19     dB          171.50     dB
 
-Peak absolute error                0.966104 lsb           1.029916 lsb
-Root-mean-square error             0.330982 lsb rms       0.332547 lsb rms
-SINAD                            108.94     dB          145.03     dB
-Effective nr of bits              17.80     bits         23.80     bits
-Spurious-free dynamic range      129.81     dB          166.18     dB
-
-cos(x) == sin(x+pi/2)               exact match            exact match
-sin(x) == - sin(x+pi)               exact match            exact match
-
+cos(x) == sin(x+pi/2) :             exact match            exact match
+sin(x) == - sin(x+pi) :             exact match            exact match
 ----
 
 
@@ -131,22 +130,21 @@ sin(x) == - sin(x+pi)               exact match            exact match
   --------------
 
 ----
+FPGA type:              Xilinx Spartan-6 LX45-3     Xilinx Virtex-7 485T-1
+Synthesizer:            Xilinx ISE 14.7             Xilinx Vivado 2014.4.1
 
-FPGA type               Xilinx Spartan-6 LX45-3     Xilinx Virtex-7 485T-1
-Synthesizer             Xilinx ISE 14.7             Xilinx Vivado 2014.4.1
+Core variant:           d18_p20     d24_p26         d18_p20     d24_p26
 
-Core variant            d18_p20     d24_p26         d18_p20     d24_p26
+Flip-flops:             136         253             153         295
+LUTs:                   124         213             114         182
+RAMB18:                   0           0               1           0
+RAMB36:                   0           0               0           1
+DSP48E1:                  0           0               2           4
+RAMB16BWER:               1           1
+RAMB8BWER:                0           1
+DSP48A1:                  2           4
 
-Flip-flops              134         250             151         291
-LUTs                    118         204             115         181
-RAMB18                    0           0               1           0
-RAMB36                    0           0               0           1
-DSP48E1                   0           0               2           4
-RAMB16BWER                1           1
-RAMB8BWER                 0           1
-DSP48A1                   2           4
-
-Clock freq              230 MHz     230 MHz         400 MHz     400 MHz
-
+Clock freq:             230 MHz     230 MHz         400 MHz     400 MHz
 ----
+
 
