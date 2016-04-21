@@ -7,6 +7,22 @@
 --  modify it under the terms of the GNU Lesser General Public
 --  License as published by the Free Software Foundation; either
 --
+--
+--  Test driver for sine / cosine core, communicates via serial port.
+--
+--  Send 6 bytes { 0x41 0x42 phase(7:0) phase(15:8) phase(23:16) phase(31:24) }
+--  to calculate sine and cosine of phase on the 18-bit / 20-bit core.
+--
+--  Send 6 bytes { 0x41 0x43 phase(7:0) phase(15:8) phase(23:16) phase(31:24) }
+--  to calculate sine and cosine of phase on the 24-bit / 26-bit core.
+--
+--  In both cases, test driver replies with 8 bytes
+--    { sin(7:0) sin(15:8) sin(23:16) sin(31:24)
+--      cos(7:0) cos(15:8) cos(23:16) cos(31:24 }
+--
+--  Send 2 bytes { 0x41 0x44 } to start clock-enable modulation.
+--  Send 3 bytes { 0x41 0x45 } to stop clock-enable modulation.
+--
 
 library ieee;
 use ieee.std_logic_1164.all;
@@ -17,12 +33,7 @@ entity test_sincos_serial is
     generic (
         -- Clock frequency divider from system clock to serial bitrate.
         --   bitrate = system_clock_frequency / serial_bitrate_divider
-        serial_bitrate_divider: integer range 10 to 8192;
-
-        -- Select core.
-        --   1 = 18-bit sin/cos generator;
-        --   2 = 24-bit sin/cos generator.
-        core_select: integer range 1 to 2 );
+        serial_bitrate_divider: integer range 10 to 8192 );
 
     port (
         -- System clock, active on rising edge.
@@ -35,24 +46,30 @@ entity test_sincos_serial is
         ser_rx:     in  std_logic;
 
         -- Serial TX output.
-        ser_tx:     out std_logic );
+        ser_tx:     out std_logic;
+
+        -- Status signals.
+        stat_ready:  out std_logic;
+        stat_calc:   out std_logic;
+        stat_clkmod: out std_logic;
+        stat_txser:  out std_logic );
 
 end entity;
 
 architecture rtl of test_sincos_serial is
 
-    constant latency:       integer := 3 + 3 * core_select;
+    constant core1_latency: integer := 6;
+    constant core2_latency: integer := 9;
 
     signal r_clk_en:        std_logic;
     signal r_in_phase:      unsigned(31 downto 0);
-    signal s_out_sin:       signed(31 downto 0);
-    signal s_out_cos:       signed(31 downto 0);
     signal s_gen1_out_sin:  signed(17 downto 0);
     signal s_gen1_out_cos:  signed(17 downto 0);
     signal s_gen2_out_sin:  signed(23 downto 0);
     signal s_gen2_out_cos:  signed(23 downto 0);
 
     signal r_tst_start:     std_logic;
+    signal r_tst_coresel:   std_logic;
     signal r_tst_in_phase:  std_logic_vector(31 downto 0);
     signal r_tst_out_sin:   std_logic_vector(31 downto 0);
     signal r_tst_out_cos:   std_logic_vector(31 downto 0);
@@ -86,36 +103,22 @@ architecture rtl of test_sincos_serial is
 begin
 
     -- Instantiate 18-bit sin/cos core.
-    gen1: if core_select = 1 generate
-
-        gen1x: entity work.sincos_gen_d18_p20
-            port map (
-                clk             => clk,
-                clk_en          => r_clk_en,
-                in_phase        => r_in_phase(19 downto 0),
-                out_sin         => s_gen1_out_sin,
-                out_cos         => s_gen1_out_cos );
-
-        s_out_sin <= resize(s_gen1_out_sin, 32);
-        s_out_cos <= resize(s_gen1_out_cos, 32);
-
-    end generate;
+    gen1: entity work.sincos_gen_d18_p20
+        port map (
+            clk             => clk,
+            clk_en          => r_clk_en,
+            in_phase        => r_in_phase(19 downto 0),
+            out_sin         => s_gen1_out_sin,
+            out_cos         => s_gen1_out_cos );
 
     -- Instantiate 24-bit sin/cos core.
-    gen2: if core_select = 2 generate
-
-        gen2x: entity work.sincos_gen_d24_p26
-            port map (
-                clk             => clk,
-                clk_en          => r_clk_en,
-                in_phase        => r_in_phase(25 downto 0),
-                out_sin         => s_gen2_out_sin,
-                out_cos         => s_gen2_out_cos );
-
-        s_out_sin <= resize(s_gen2_out_sin, 32);
-        s_out_cos <= resize(s_gen2_out_cos, 32);
-
-    end generate;
+    gen2: entity work.sincos_gen_d24_p26
+        port map (
+            clk             => clk,
+            clk_en          => r_clk_en,
+            in_phase        => r_in_phase(25 downto 0),
+            out_sin         => s_gen2_out_sin,
+            out_cos         => s_gen2_out_cos );
 
     -- Synchronous process.
     -- State machine for interface to design under test.
@@ -128,10 +131,18 @@ begin
                 r_in_phase      <= (others => '0');
             end if;
 
-            if r_tst_busy = '1' and r_tst_cyclecnt = latency then
+            if r_tst_busy = '1' and r_tst_coresel = '0' and
+               r_tst_cyclecnt = core1_latency then
                 r_tst_busy      <= '0';
-                r_tst_out_sin   <= std_logic_vector(s_out_sin);
-                r_tst_out_cos   <= std_logic_vector(s_out_cos);
+                r_tst_out_sin   <= std_logic_vector(resize(s_gen1_out_sin, 32));
+                r_tst_out_cos   <= std_logic_vector(resize(s_gen1_out_cos, 32));
+            end if;
+
+            if r_tst_busy = '1' and r_tst_coresel = '1' and
+               r_tst_cyclecnt = core2_latency then
+                r_tst_busy      <= '0';
+                r_tst_out_sin   <= std_logic_vector(resize(s_gen2_out_sin, 32));
+                r_tst_out_cos   <= std_logic_vector(resize(s_gen2_out_cos, 32));
             end if;
 
             if r_tst_start = '1' and r_tst_busy = '0' then
@@ -197,10 +208,14 @@ begin
             if r_ctl_state = "0001" and r_ser_rx_strobe = '1' then
                 if r_ser_rx_byte = x"42" then
                     r_ctl_state     <= "0010";
+                    r_tst_coresel   <= '0';
                 elsif r_ser_rx_byte = x"43" then
+                    r_ctl_state     <= "0010";
+                    r_tst_coresel   <= '1';
+                elsif r_ser_rx_byte = x"44" then
                     r_ctl_state     <= "0000";
                     r_clkmod        <= '1';
-                elsif r_ser_rx_byte = x"44" then
+                elsif r_ser_rx_byte = x"45" then
                     r_ctl_state     <= "0000";
                     r_clkmod        <= '0';
                 else
@@ -291,6 +306,25 @@ begin
     end process;
 
     -- Synchronous process.
+    -- Drive status output signals.
+    process (clk) is
+    begin
+        if rising_edge(clk) then
+
+            if r_ctl_state = "0000" then
+                stat_ready  <= '1';
+            else
+                stat_ready  <= '0';
+            end if;
+
+            stat_calc   <= r_tst_busy;
+            stat_clkmod <= r_clkmod;
+            stat_txser  <= r_ser_tx_busy;
+
+        end if;
+    end process;
+
+    -- Synchronous process.
     -- Serial port RX machine.
     process (clk) is
     begin
@@ -323,34 +357,41 @@ begin
                 end if;
             elsif r_ser_rx_state = "01" then
                 -- Wait for start of byte.
-                r_ser_rx_shift(7 downto 0)  <= (others => '0');
-                r_ser_rx_shift(8) <= '1';
                 r_ser_rx_timer  <= to_unsigned(serial_bitrate_divider / 2 - 2, r_ser_rx_timer'length);
                 r_ser_rx_timeout <= '0';
                 if r_ser_rx_bit = '0' then
                     r_ser_rx_state  <= "10";
                 end if;
             elsif r_ser_rx_state = "10" then
+                -- Check start bit.
+                r_ser_rx_shift(7 downto 0)  <= (others => '1');
+                r_ser_rx_shift(8) <= '0';
+                if r_ser_rx_timeout = '1' then
+                    if r_ser_rx_bit = '0' then
+                        r_ser_rx_state  <= "11";
+                    else
+                        r_ser_rx_state  <= "00";
+                    end if;
+                    r_ser_rx_timer  <= to_unsigned(serial_bitrate_divider - 2, r_ser_rx_timer'length);
+                end if;
+             elsif r_ser_rx_state = "11" then
                 -- Wait for data bit.
                 if r_ser_rx_timeout = '1' then
                     r_ser_rx_shift  <= r_ser_rx_bit & r_ser_rx_shift(8 downto 1);
-                    if r_ser_rx_shift(0) = '1' then
+                    if r_ser_rx_shift(0) = '0' then
                         -- Reached end of byte.
                         if r_ser_rx_bit = '1' then
                             -- Got valid stop bit.
+                            r_ser_rx_byte   <= r_ser_rx_shift(8 downto 1);
                             r_ser_rx_strobe <= '1';
                             r_ser_rx_state  <= "01";
                         else
                             -- Got invalid stop bit.
                             r_ser_rx_state  <= "00";
                         end if;
-                        r_ser_rx_state  <= "11";
                     end if;
                     r_ser_rx_timer  <= to_unsigned(serial_bitrate_divider - 2, r_ser_rx_timer'length);
                 end if;
-            else
-                -- Invalid state.
-                r_ser_rx_state  <= "00";
             end if;
 
             -- Synchronous reset.
