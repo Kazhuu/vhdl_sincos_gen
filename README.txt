@@ -1,8 +1,8 @@
 
-  Sine / cosine generator in VHDL
- =================================
+  Sine / cosine function core in VHDL
+ ====================================
 
-This package contains a sine / cosine generator in synthesizable VHDL code.
+This package contains a sine / cosine function core in synthesizable VHDL code.
 
 The core takes a phase value as input and produces the corresponding sine
 and cosine as signed integer outputs. The core is fully pipelined, accepting
@@ -33,8 +33,8 @@ to compute the sine and cosine of an arbitrary point in the first quadrant:
     in a ROM block with two read ports.
 
  2) Compute the phase mismatch between the table point and actual
-    phase input in radians. This requires multiplication by Pi,
-    which is implemented through repeated shifting and adding.
+    phase input in radians. This requires multiplication by Pi/2,
+    which is implemented through shifting and adding.
 
  3) Use the Taylor series to obtain a more accurate approximation
     of the answer. Depending on the required accuracy, either 1st order
@@ -105,7 +105,6 @@ These two wrappers are the only tested variants of the core.
 Accuracy of the sine/cosine output from the cores has been determined from
 a simulation of the VHDL code on all possible phase input values.
 
-
 ----
 Core variant:                sincos_gen_d18_p20      sincos_gen_d24_p26
 Phase input width:                      20 bits                 26 bits
@@ -147,4 +146,4 @@ DSP48A1:                  2           4
 Clock freq:             230 MHz     230 MHz         400 MHz     400 MHz
 ----
 
-
+--
