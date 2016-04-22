@@ -161,6 +161,7 @@ begin
     begin
         if r_ac97_rst = '0' then
             r_ac97_rstsync  <= (others => '1');
+            r_ac97_phase    <= (others => '0');
         elsif rising_edge(ac97_bitclk) then
             r_ac97_rstsync  <= "0" & r_ac97_rstsync(7 downto 1);
             if s_ac97_ready = '1' then

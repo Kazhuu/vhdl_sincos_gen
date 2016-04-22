@@ -15,7 +15,7 @@
   <version xil_pn:ise_version="14.6" xil_pn:schema_version="2"/>
 
   <files>
-    <file xil_pn:name="top_test_sincos.vhd" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="top_test_sincos.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="1"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="6"/>
     </file>
@@ -158,7 +158,7 @@
     <property xil_pn:name="Ignore User Timing Constraints Map" xil_pn:value="false" xil_pn:valueState="default"/>
     <property xil_pn:name="Ignore User Timing Constraints Par" xil_pn:value="false" xil_pn:valueState="default"/>
     <property xil_pn:name="Implementation Top" xil_pn:value="Architecture|top_test_sincos|rtl" xil_pn:valueState="non-default"/>
-    <property xil_pn:name="Implementation Top File" xil_pn:value="top_test_sincos.vhd" xil_pn:valueState="non-default"/>
+    <property xil_pn:name="Implementation Top File" xil_pn:value="top_test_sincos.vhdl" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Implementation Top Instance Path" xil_pn:value="/top_test_sincos" xil_pn:valueState="non-default"/>
     <property xil_pn:name="Include 'uselib Directive in Verilog File" xil_pn:value="false" xil_pn:valueState="default"/>
     <property xil_pn:name="Include SIMPRIM Models in Verilog File" xil_pn:value="false" xil_pn:valueState="default"/>
