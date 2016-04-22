@@ -51,7 +51,6 @@ architecture rtl of ac97out is
         x"800000" );
 
     -- Output registers.
-    signal r_ready:     std_logic;
     signal r_sdo:       std_logic;
     signal r_sync:      std_logic;
 
@@ -76,7 +75,7 @@ architecture rtl of ac97out is
 begin
 
     -- Drive outputs.
-    data_ready  <= r_ready;
+    data_ready  <= not r_datavalid;
     ac97_sdo    <= r_sdo;
     ac97_sync   <= r_sync;
 
@@ -155,14 +154,11 @@ begin
             end if;
 
             -- Capture input data.
-            if r_ready = '1' and data_valid = '1' then
+            if r_datavalid = '0' and data_valid = '1' then
                 r_datavalid <= '1';
                 r_dataleft  <= std_logic_vector(data_left);
                 r_dataright <= std_logic_vector(data_right);
             end if;
-
-            -- Update ready flag.
-            r_ready     <= (not r_datavalid) and (not data_valid);
 
             -- Synchronous reset.
             if rst = '1' then
