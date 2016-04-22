@@ -1,0 +1,38 @@
+
+# clock pin for Atlys rev C board
+NET "clk"   LOC = "L15" | IOSTANDARD = LVCMOS33 ;
+
+# 100 MHz
+NET "clk"   TNM_NET = "clk" ;
+TIMESPEC "TS_clk" = PERIOD "clk" 10 ns HIGH 50% ;
+
+# Reset button
+NET "resetn"  LOC = "T15" | IOSTANDARD = LVCMOS18 ;
+
+# LEDs
+NET "led<0>"  LOC = "U18" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+NET "led<1>"  LOC = "M14" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+NET "led<2>"  LOC = "N14" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+NET "led<3>"  LOC = "L14" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+NET "led<4>"  LOC = "M13" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+NET "led<5>"  LOC = "D4"  | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+NET "led<6>"  LOC = "P16" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+NET "led<7>"  LOC = "N12" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
+ 
+# USB serial port J17
+NET "uartrx"    LOC = "A16" | IOSTANDARD = LVCMOS33 ;
+NET "uarttx"    LOC = "B16" | IOSTANDARD = LVCMOS33 ;
+
+# Audio
+NET "ac97_bitclk"   LOC = "L13" | IOSTANDARD = LVCMOS33 ;
+NET "ac97_sdi"      LOC = "T18" | IOSTANDARD = LVCMOS33 ;
+NET "ac97_sdo"      LOC = "N16" | IOSTANDARD = LVCMOS33 ;
+NET "ac97_sync"     LOC = "U17" | IOSTANDARD = LVCMOS33 ;
+NET "ac97_rst"      LOC = "T17" | IOSTANDARD = LVCMOS33 ;
+
+# Constrain bitclk to 20 MHz (actual frequency is 12.288 MHz)
+NET "ac97_bitclk"   PERIOD = 50 ns HIGH 50% ;
+
+OFFSET = IN  10 ns VALID 20 ns BEFORE "ac97_bitclk" FALLING ;
+OFFSET = OUT 15 ns AFTER "ac97_bitclk" RISING ;
+
