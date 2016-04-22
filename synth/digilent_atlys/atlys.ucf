@@ -7,7 +7,7 @@ NET "clk"   TNM_NET = "clk" ;
 TIMESPEC "TS_clk" = PERIOD "clk" 10 ns HIGH 50% ;
 
 # Reset button
-NET "resetn"  LOC = "T15" | IOSTANDARD = LVCMOS18 ;
+NET "resetn"  LOC = "T15" | IOSTANDARD = LVCMOS33 ;
 
 # LEDs
 NET "led<0>"  LOC = "U18" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
@@ -21,7 +21,7 @@ NET "led<7>"  LOC = "N12" | IOSTANDARD = LVCMOS33 | SLEW = QUIETIO ;
  
 # USB serial port J17
 NET "uartrx"    LOC = "A16" | IOSTANDARD = LVCMOS33 ;
-NET "uarttx"    LOC = "B16" | IOSTANDARD = LVCMOS33 ;
+NET "uarttx"    LOC = "B16" | IOSTANDARD = LVCMOS33 | SLEW = SLOW ;
 
 # Audio
 NET "ac97_bitclk"   LOC = "L13" | IOSTANDARD = LVCMOS33 ;

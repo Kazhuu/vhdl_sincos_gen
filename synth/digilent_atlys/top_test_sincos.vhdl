@@ -73,7 +73,6 @@ architecture rtl of top_test_sincos is
 
     signal r_ac97_rstcnt: unsigned(7 downto 0);
     signal r_ac97_rst:   std_logic;
-    signal r_ac97_rstsync: std_logic_vector(7 downto 0);
     signal r_ac97_phase: unsigned(19 downto 0);
     signal s_ac97_sine:  signed(17 downto 0);
     signal s_ac97_dataleft:  signed(19 downto 0);
@@ -109,14 +108,16 @@ begin
     u2: entity work.ac97out
         port map (
             bitclk      => ac97_bitclk,
-            rst         => r_ac97_rstsync(0),
+            resetn      => r_ac97_rst,
             data_left   => s_ac97_dataleft,
             data_right  => s_ac97_dataright,
             data_valid  => '1',
             data_ready  => s_ac97_ready,
+            ac97_sdi    => ac97_sdi,
             ac97_sdo    => ac97_sdo,
             ac97_sync   => ac97_sync );
 
+    -- Pad 18-bit signed samples to 20-bit.
     s_ac97_dataleft  <= s_ac97_sine & "00";
     s_ac97_dataright <= s_ac97_sine & "00";
 
@@ -157,13 +158,9 @@ begin
     end process;
 
     -- Synchronous process in AC97 bitclock domain.
-    process (ac97_bitclk, r_ac97_rst) is
+    process (ac97_bitclk) is
     begin
-        if r_ac97_rst = '0' then
-            r_ac97_rstsync  <= (others => '1');
-            r_ac97_phase    <= (others => '0');
-        elsif rising_edge(ac97_bitclk) then
-            r_ac97_rstsync  <= "0" & r_ac97_rstsync(7 downto 1);
+        if rising_edge(ac97_bitclk) then
             if s_ac97_ready = '1' then
                 r_ac97_phase <= r_ac97_phase + tone_freq;
             end if;
